@@ -4,7 +4,8 @@
 
 var winston = require('winston'),
     chalk   = require('chalk'),
-    nodeNxt = require('node-nxt');
+    nodeNxt = require('node-nxt'),
+    _       = require('lodash');
     
 module.exports = NxtController;
 
@@ -65,7 +66,6 @@ NxtController.prototype.checkConnection = function () {
   @direction: String -> 'FWD' or 'BWD'
   @speed:     Integer -> 0-100
 */
-
 NxtController.prototype.move = function ( direction, speed, turnRatio, callback ) {
   this.checkConnection();
 
@@ -78,17 +78,58 @@ NxtController.prototype.move = function ( direction, speed, turnRatio, callback 
     speed = 0 - speed;
   }
 
-  nxt.OutputSetSpeed(l, 32, speed);
-  nxt.OutputSetSpeed(r, 32, speed);
+  this._runMotors([
+    {
+      port:  l,
+      speed: speed
+    },
+    {
+      port:  r,
+      speed: speed
+    }
+  ]);
 }
 
+/*
+  Precise Move Method
+*/
+NxtController.prototype.moveAuxPrecise = function ( speed, degrees, callback ) {
+  arguments.unshift( this.motors.aux );
+
+  this.movePrecise.apply( this, arguments );
+}
+
+NxtController.prototype.movePrecise = function ( port, speed, degrees, callback ) {
+  this.checkConnection();
+
+  var port = ( typeof port === 'number' ) ? port : portMap[ port ],
+      nxt  = this.nxt;
+
+  this._runMotors([
+    {
+      port:    port,
+      speed:   speed,
+      degrees: degrees
+    }
+  ]);
+
+  callback();
+}
+
+/*
+  Shoot Method
+
+  Shooter bot function, uses aux port. Could use prototype.moveAuxPrecise instead.
+*/
+NxtController.prototype.shoot = function ( speed, callback ) {
+  this.moveAuxPrecise( speed, 360, callback );
+}
 
 /*
   Stop Method
 
   Stops all movement on Left/Right Motors
 */
-
 NxtController.prototype.stop = function () {
   this.checkConnection();
 
@@ -96,13 +137,51 @@ NxtController.prototype.stop = function () {
       r   = this.motors.right,
       nxt = this.nxt;
 
-  nxt.OutputSetSpeed(l, 32, 0);
-  nxt.OutputSetSpeed(r, 32, 0);
+  this._runMotors([
+    {
+      port:  l,
+      speed: 0
+    },
+    {
+      port:  r,
+      speed: 0
+    }
+  ]);
+}
+
+
+/*
+  Private Methods
+*/
+NxtController.prototype._runMotors ( portArray ) {
+  this.checkConnection();
+
+  if( typeof portArray !== 'object' || !_.isArray( portArray ) ) {
+    throw new Error('You must pass ports to the _runMotors method');
+  }
+
+  var outputs = [],
+      nxt     = this.nxt;
+
+  for ( var key in portArray ) {
+    var o = portArray[ key ],
+        args = [ o.port, 32, o.speed ];
+
+    if( o.degrees ) {
+      args.push( o.degrees );
+    }
+
+    outputs.push( args );
+  }
+
+  outputs.forEach(function ( argArray ) {
+    nxt.OutputSetSpeed.apply( this, argArray );
+  });
 }
 
 /*
 
-var NxtController = require('nxt/controller');
+var NxtController = require('./nxt/controller');
 
 var bot = new NxtController({
   device: process.env.NXT_DEVICE,
