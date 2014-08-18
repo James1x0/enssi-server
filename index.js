@@ -7,7 +7,7 @@ var bodyParser = require('body-parser'),
 
 require('./config/mongoose').init();
 
-exports.init = function (app) {
+exports.init = function ( app ) {
 
   winston.info("Setting up middleware...");
   app.use( morgan('dev') );
@@ -19,7 +19,7 @@ exports.init = function (app) {
 
   winston.info("Getting routes...");
 
-  routes.forEach(function(route) {
+  routes.forEach(function ( route ) {
     route(app);
   });
 

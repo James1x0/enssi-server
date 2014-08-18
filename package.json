@@ -27,6 +27,7 @@
     "mongoose": "^3.8.13",
     "morgan": "^1.2.0",
     "node-nxt": "git://github.com/james1x0/node-nxt#patch-1",
+    "socket.io": "^1.0.6",
     "winston": "^0.7.3"
   },
   "devDependencies": {

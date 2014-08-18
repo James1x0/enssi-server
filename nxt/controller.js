@@ -47,6 +47,10 @@ NxtController.prototype.connect = function ( callback ) {
       throw new Error('NXT Connection Error');
     }
 
+    nxt.OutputSetRegulation( 1, 1, 1 );
+    nxt.OutputSetRegulation( 2, 1, 1 );
+    nxt.OutputSetRegulation( 3, 1, 1 );
+
     if( callback && typeof callback === 'function' ) {
       callback( nxt );
     }
@@ -78,25 +82,12 @@ NxtController.prototype.move = function ( direction, speed, turnRatio, callback 
     speed = 0 - speed;
   }
 
-  this._runMotors([
-    {
-      port:  l,
-      speed: speed
-    },
-    {
-      port:  r,
-      speed: speed
-    }
-  ]);
+  nxt.OutputSetSpeed( l, 32, speed );
+  nxt.OutputSetSpeed( r, 32, speed );
 }
 
-/*
-  Precise Move Method
-*/
 NxtController.prototype.moveAuxPrecise = function ( speed, degrees, callback ) {
-  arguments.unshift( this.motors.aux );
-
-  this.movePrecise.apply( this, arguments );
+  this.movePrecise( this.motors.aux, speed, degrees, callback );
 }
 
 NxtController.prototype.movePrecise = function ( port, speed, degrees, callback ) {
@@ -105,15 +96,45 @@ NxtController.prototype.movePrecise = function ( port, speed, degrees, callback 
   var port = ( typeof port === 'number' ) ? port : portMap[ port ],
       nxt  = this.nxt;
 
-  this._runMotors([
-    {
-      port:    port,
-      speed:   speed,
-      degrees: degrees
-    }
-  ]);
+  nxt.OutputSetSpeed( port, 32, speed, degrees );
 
-  callback();
+  if( callback && typeof callback === 'function' ) {
+    callback();
+  }
+}
+
+NxtController.prototype.movePreciseInverse = function ( port, inversePort, speed, degrees ) {
+  this.checkConnection();
+
+  this.movePrecise( port, speed, degrees );
+  this.movePrecise( inversePort, 0 - speed, degrees );
+}
+
+NxtController.prototype.moveInverse = function ( port, inversePort, speed ) {
+  this.checkConnection();
+
+  var nxt = this.nxt;
+
+  nxt.OutputSetSpeed( port, 32, speed );
+  nxt.OutputSetSpeed( inversePort, 32, 0 - speed );
+}
+
+NxtController.prototype.spin = function ( direction, speed, botDegrees ) {
+  var multiplier = 5.40,
+      deg        = Math.round( botDegrees * multiplier ),
+      portI      = this.motors[ direction ],
+      port       = ( portI === this.motors.left ) ? this.motors.right : this.motors.left;
+
+  console.log(deg, port, portI);
+
+  this.movePreciseInverse( port, portI, speed, deg );
+}
+
+NxtController.prototype.turn = function ( direction, speed ) {
+  var portI = this.motors[ direction ],
+      port  = ( portI === this.motors.left ) ? this.motors.right : this.motors.left;
+
+  this.moveInverse( port, portI, speed );
 }
 
 /*
@@ -137,23 +158,16 @@ NxtController.prototype.stop = function () {
       r   = this.motors.right,
       nxt = this.nxt;
 
-  this._runMotors([
-    {
-      port:  l,
-      speed: 0
-    },
-    {
-      port:  r,
-      speed: 0
-    }
-  ]);
+  nxt.OutputSetSpeed(l, 32, 0);
+  nxt.OutputSetSpeed(r, 32, 0);
 }
 
 
 /*
   Private Methods
 */
-NxtController.prototype._runMotors ( portArray ) {
+// Broken
+NxtController.prototype._runMotors = function ( portArray ) {
   this.checkConnection();
 
   if( typeof portArray !== 'object' || !_.isArray( portArray ) ) {
@@ -175,7 +189,8 @@ NxtController.prototype._runMotors ( portArray ) {
   }
 
   outputs.forEach(function ( argArray ) {
-    nxt.OutputSetSpeed.apply( this, argArray );
+    console.log( argArray );
+    nxt.OutputSetSpeed( this, argArray );
   });
 }
 
