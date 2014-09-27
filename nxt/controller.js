@@ -13,7 +13,7 @@ var portMap = {
   A: 1,
   B: 2,
   C: 3
-}
+};
 
 function NxtController ( options ) {
   this.device    = options.device || '/dev/cu.usbmodem1411';
@@ -39,6 +39,8 @@ NxtController.prototype.connect = function ( callback ) {
   winston.log( chalk.dim('NxtController :: Connecting...') );
 
   nodeNxt.connect(this.device, function ( nxt ) {
+    console.log('fin');
+    console.log(nxt);
     if( nxt ) {
       controller.nxt       = nxt;
       controller.connected = true;
@@ -55,14 +57,14 @@ NxtController.prototype.connect = function ( callback ) {
       callback( nxt );
     }
   });
-}
+};
 
 NxtController.prototype.checkConnection = function () {
   if( !this.connected || !this.nxt ) {
     winston.log('error', chalk.bgRed('NxtController :: Attempted to call method that requires initialization'));
     throw new Error('NXT Connect First Error');
   }
-}
+};
 
 /*
   Move Method
@@ -84,31 +86,32 @@ NxtController.prototype.move = function ( direction, speed, turnRatio, callback 
 
   nxt.OutputSetSpeed( l, 32, speed );
   nxt.OutputSetSpeed( r, 32, speed );
-}
+};
 
 NxtController.prototype.moveAuxPrecise = function ( speed, degrees, callback ) {
   this.movePrecise( this.motors.aux, speed, degrees, callback );
-}
+};
 
 NxtController.prototype.movePrecise = function ( port, speed, degrees, callback ) {
   this.checkConnection();
 
-  var port = ( typeof port === 'number' ) ? port : portMap[ port ],
-      nxt  = this.nxt;
+  var nxt = this.nxt;
+
+  port = ( typeof port === 'number' ) ? port : portMap[ port ];
 
   nxt.OutputSetSpeed( port, 32, speed, degrees );
 
   if( callback && typeof callback === 'function' ) {
     callback();
   }
-}
+};
 
 NxtController.prototype.movePreciseInverse = function ( port, inversePort, speed, degrees ) {
   this.checkConnection();
 
   this.movePrecise( port, speed, degrees );
   this.movePrecise( inversePort, 0 - speed, degrees );
-}
+};
 
 NxtController.prototype.moveInverse = function ( port, inversePort, speed ) {
   this.checkConnection();
@@ -117,7 +120,7 @@ NxtController.prototype.moveInverse = function ( port, inversePort, speed ) {
 
   nxt.OutputSetSpeed( port, 32, speed );
   nxt.OutputSetSpeed( inversePort, 32, 0 - speed );
-}
+};
 
 NxtController.prototype.spin = function ( direction, speed, botDegrees ) {
   var multiplier = 5.40,
@@ -128,14 +131,14 @@ NxtController.prototype.spin = function ( direction, speed, botDegrees ) {
   console.log(deg, port, portI);
 
   this.movePreciseInverse( port, portI, speed, deg );
-}
+};
 
 NxtController.prototype.turn = function ( direction, speed ) {
   var portI = this.motors[ direction ],
       port  = ( portI === this.motors.left ) ? this.motors.right : this.motors.left;
 
   this.moveInverse( port, portI, speed );
-}
+};
 
 /*
   Shoot Method
@@ -144,7 +147,7 @@ NxtController.prototype.turn = function ( direction, speed ) {
 */
 NxtController.prototype.shoot = function ( speed, callback ) {
   this.moveAuxPrecise( speed, 360, callback );
-}
+};
 
 /*
   Stop Method
@@ -160,7 +163,7 @@ NxtController.prototype.stop = function () {
 
   nxt.OutputSetSpeed(l, 32, 0);
   nxt.OutputSetSpeed(r, 32, 0);
-}
+};
 
 
 /*
@@ -192,7 +195,7 @@ NxtController.prototype._runMotors = function ( portArray ) {
     console.log( argArray );
     nxt.OutputSetSpeed( this, argArray );
   });
-}
+};
 
 /*
 

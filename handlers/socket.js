@@ -14,23 +14,22 @@ module.exports = SocketController;
 
 function SocketController ( app ) {
 
-  var connection = socketio(app);
+  var connection = socketio( app );
 
-  this.connection = connection;
+  this.connection    = connection;
   this.activeSockets = [];
+  this.users         = [];
 
   var self = this;
 
   connection.sockets.on('connection', function ( socket ) {
-    winston.info( chalk.dim('User Connected.') );
+    winston.info( chalk.dim( 'User Connected ::', socket.request.connection.remoteAddress ) );
 
     self.setupEvents( socket );
 
     self.activeSockets.push( socket );
-  });
 
-  connection.sockets.on('disconnect', function ( socket ) {
-
+    socket.emit('users-update', self.users);
   });
 
   this.setupBot();
@@ -39,15 +38,40 @@ function SocketController ( app ) {
 SocketController.prototype.setupEvents = function ( socket ) {
   var self = this;
 
+  var addUsername = this.addUsername.bind({
+    socket:     socket,
+    controller: self
+  });
+
   socket.on('bot-start', this.startEvent);
   socket.on('bot-stop',  this.stopEvent);
+  socket.on('username',  addUsername);
 
   socket.on('disconnect', function () {
     winston.info( chalk.dim('User Disconnected.') );
 
     _.pull( self.activeSockets, socket );
+    _.pull( self.users, socket.__username );
+
+    self.updateUsers.call( self );
   });
-}
+  socket.on('error', function (err) {
+  if (err.description) throw err.description;
+  else throw err; // Or whatever you want to do
+});
+};
+
+SocketController.prototype.addUsername = function ( data ) {
+  this.socket.__username = data;
+
+  this.controller.users.push( data );
+  this.controller.updateUsers.call( this.controller );
+};
+
+SocketController.prototype.updateUsers = function () {
+  console.log('updating users', this.users);
+  this.connection.emit('users-update', this.users);
+};
 
 SocketController.prototype.setupBot = function () {
   var bot = new NxtController({
@@ -62,14 +86,14 @@ SocketController.prototype.setupBot = function () {
   var self = this;
 
   bot.connect(function ( connection ) {
-    gBot = bot;
+    gBot              = bot;
     self.botConnected = true;
 
     self.activeSockets.forEach(function ( socket ) {
       socket.emit('bot-connection');
-    })
+    });
   });
-}
+};
 
 SocketController.prototype.stopEvent = function ( ev ) {
   if( !gBot ) {
@@ -77,7 +101,7 @@ SocketController.prototype.stopEvent = function ( ev ) {
   }
 
   gBot.stop();
-}
+};
 
 SocketController.prototype.startEvent = function ( ev ) {
   if( !gBot ) {
@@ -101,4 +125,4 @@ SocketController.prototype.startEvent = function ( ev ) {
     case 'shoot':
       gBot.shoot( 100 );
   }
-}
+};
