@@ -20,6 +20,8 @@ function SocketController ( app ) {
   this.activeSockets = [];
   this.users         = [];
   this.userSockets   = {};
+  this.currentUser   = {};
+  this.nextUser      = {};
 
   var self = this;
 
@@ -35,7 +37,7 @@ function SocketController ( app ) {
 
   this.setupBot();
 
-  this.queueInterval = setInterval( this._queueTick, 1000 * 30 ); // 30 Second Turns
+  this.queueInterval = setInterval( this._queueTick.bind( this ), 1000 * 30 ); // 30 Second Turns
 
   return this;
 }
@@ -58,7 +60,7 @@ SocketController.prototype.setupEvents = function ( socket ) {
     _.pull( self.activeSockets, socket );
     _.pull( self.users, socket.__username );
 
-    delete userSockets[ socket.__username ];
+    delete self.userSockets[ socket.__username ];
 
     self.updateUsers.call( self );
   });
@@ -93,11 +95,11 @@ SocketController.prototype._queueTick = function () {
       userIndex;
 
   if( !_.isArray( users ) || users.length < 1 ) {
-    return;
+    return winston.log('info', chalk.dim('No users to queue'));
   }
 
   users.forEach(function ( user, index ) {
-    if( user === self.currentUser.name ) {
+    if( user === self.nextUser.name ) {
       userIndex = index;
     }
   });
@@ -106,28 +108,23 @@ SocketController.prototype._queueTick = function () {
 
   userIndex++;
 
-  if( userIndex > this.users.length )
+  if( userIndex + 1 > users.length ) {
+    userIndex = 0;
+  }
 
   this.currentUser = this.nextUser;
-
   this.nextUser = {
     name:           users[ userIndex ],                       // Username
     ballsRemaining: 1,                                        // Shooter Balls Default
     socketId:       this.userSockets[ users[ userIndex ] ].id // User's Socket id
   };
 
+  winston.log('info', chalk.dim('Current user is', this.currentUser.name, 'and next user is', this.nextUser.name));
+
   this.didUpdateCurrentUser();
 };
 
 SocketController.prototype.didUpdateCurrentUser = function () {
-  var striped = {
-    current: this.currentUser,
-    next:    this.nextUser
-  };
-
-  delete striped.current.socketId;
-  delete striped.next.socketId;
-
   this.connection.emit('queue-update', {
     current: this.currentUser,
     next:    this.nextUser
@@ -164,7 +161,7 @@ SocketController.prototype.stopEvent = function ( ev ) {
 
 SocketController.prototype.startEvent = function ( ev ) {
   if( this.controller.currentUser.socketId !== this.socket.id ) {
-    return socket.emit('queue-error', {
+    return this.socket.emit('queue-error', {
       message: 'You are not the current active user in queue'
     });
   }
