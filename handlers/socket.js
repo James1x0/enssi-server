@@ -37,7 +37,7 @@ function SocketController ( app ) {
 
   this.setupBot();
 
-  this.queueInterval = setInterval( this._queueTick.bind( this ), 1000 * 30 ); // 30 Second Turns
+  this._resetQueueInterval();
 
   return this;
 }
@@ -51,7 +51,7 @@ SocketController.prototype.setupEvents = function ( socket ) {
   };
 
   socket.on('bot-start', this.startEvent.bind( context ));
-  socket.on('bot-stop',  this.stopEvent);
+  socket.on('bot-stop',  this.stopEvent.bind( context ));
   socket.on('username',  this.addUsername.bind( context ));
 
   socket.on('disconnect', function () {
@@ -119,12 +119,18 @@ SocketController.prototype._queueTick = function () {
     socketId:       this.userSockets[ users[ userIndex ] ].id // User's Socket id
   };
 
+  if( !this.currentUser && this.nextUser && this.nextUser.socketId ) {
+    this._resetQueueInterval();
+    this._queueTick();
+  }
+
   winston.log('info', chalk.dim('Current user is', this.currentUser.name, 'and next user is', this.nextUser.name));
 
   this.didUpdateCurrentUser();
 };
 
 SocketController.prototype.didUpdateCurrentUser = function () {
+  this.stopEvent();
   this.connection.emit('queue-update', {
     current: this.currentUser,
     next:    this.nextUser
@@ -160,12 +166,13 @@ SocketController.prototype.stopEvent = function ( ev ) {
 };
 
 SocketController.prototype.startEvent = function ( ev ) {
+  console.log('ev');
   if( this.controller.currentUser.socketId !== this.socket.id ) {
     return this.socket.emit('queue-error', {
       message: 'You are not the current active user in queue'
     });
   }
-
+  console.log('running');
   if( !gBot ) {
     return winston.log('error', chalk.bgRed('No bot connected.'));
   }
@@ -173,26 +180,47 @@ SocketController.prototype.startEvent = function ( ev ) {
   var type = ev.eventType;
 
   console.log(ev);
+  this.controller._emitMessage.call( this.controller, type, 'event triggered by', this.socket.__username );
 
   switch ( type ) {
     case 'move':
-      gBot.move( ev.eventDirection, 100 );
+      gBot.move( ev.eventDirection, ev.speed, ev.ratio );
       break;
     case 'turn':
-      gBot.turn( ev.eventDirection, 100 );
+      gBot.turn( ev.eventDirection, ev.speed );
       break;
     case 'turnPrecise':
-      gBot.spin( ev.eventDirection, 100, ev.eventDegrees );
+      gBot.spin( ev.eventDirection, ev.speed, ev.eventDegrees );
       break;
     case 'shoot':
-      if( this.currentUser.ballsRemaining < 1 ) {
+      if( this.controller.currentUser.ballsRemaining < 1 ) {
         return this.socket.emit('event-error', {
           message: 'No balls remaining'
         });
       }
 
-      this.currentUser.ballsRemaining--;
+      this.controller.currentUser.ballsRemaining--;
 
       gBot.shoot( 100 );
   }
+};
+
+SocketController.prototype._emitMessage = function ( msg ) {
+  console.log(msg);
+  var args = Array.prototype.slice.call(arguments);
+
+  if( args.length > 0 ) {
+    msg = args.join(' ');
+  }
+  console.log(msg);
+
+  this.connection.emit('new-message', msg);
+};
+
+SocketController.prototype._resetQueueInterval = function () {
+  if( this.queueInterval ) {
+    clearInterval( this.queueInterval );
+  }
+
+  this.queueInterval = setInterval( this._queueTick.bind( this ), 1000 * 10 ); // 30 Second Turns
 };
