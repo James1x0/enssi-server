@@ -58,7 +58,9 @@ SocketController.prototype.setupEvents = function ( socket ) {
     winston.info( chalk.dim('User Disconnected.') );
 
     _.pull( self.activeSockets, socket );
-    _.pull( self.users, socket.__username );
+    _.remove( self.users, function ( user ) {
+      return user.id === socket.id;
+    });
 
     delete self.userSockets[ socket.__username ];
 
@@ -71,37 +73,52 @@ SocketController.prototype.setupEvents = function ( socket ) {
 };
 
 SocketController.prototype.addUsername = function ( data ) {
+  var self = this;
+
   if( this.controller.users.indexOf( data ) > -1 ) {
+    return this.socket.emit('username-taken');
+  }
+
+  var existingSocketAndUsername = _.find(this.controller.users, function ( user ) {
+    return ( user.ip === self.socket.request.connection.remoteAddress );
+  });
+
+  console.log(existingSocketAndUsername);
+
+  if( existingSocketAndUsername ) {
     return this.socket.emit('username-taken');
   }
 
   this.socket.__username = data;
 
-  this.controller.users.push( data );
+  this.controller.users.push({
+    ip:       self.socket.request.connection.remoteAddress,
+    id:       self.socket.id,
+    username: data
+  });
 
   this.controller.userSockets[ data ] = this.socket;
 
   this.controller.updateUsers.call( this.controller );
+
+  this.socket.emit('username-success');
 };
 
 SocketController.prototype.updateUsers = function () {
   console.log( this.users );
-  this.connection.emit('users-update', this.users);
+  this.connection.emit('users-update', _.pluck( this.users, 'username' ));
 };
 
 SocketController.prototype._queueTick = function () {
   var users = this.users,
-      self  = this,
-      userIndex;
+      self  = this;
 
   if( !_.isArray( users ) || users.length < 1 ) {
     return winston.log('info', chalk.dim('No users to queue'));
   }
 
-  users.forEach(function ( user, index ) {
-    if( user === self.nextUser.name ) {
-      userIndex = index;
-    }
+  var userIndex = _.findIndex( users, function ( user ) {
+    return user.id === self.nextUser.socketId;
   });
 
   userIndex = ( typeof userIndex === 'number' ) ? userIndex : -1;
@@ -114,9 +131,9 @@ SocketController.prototype._queueTick = function () {
 
   this.currentUser = this.nextUser;
   this.nextUser = {
-    name:           users[ userIndex ],                       // Username
-    ballsRemaining: 1,                                        // Shooter Balls Default
-    socketId:       this.userSockets[ users[ userIndex ] ].id // User's Socket id
+    name:           users[ userIndex ].username, // Username
+    ballsRemaining: 1,                           // Shooter Balls Default
+    socketId:       users[ userIndex ].id        // User's Socket id
   };
 
   if( !this.currentUser && this.nextUser && this.nextUser.socketId ) {

@@ -78,14 +78,29 @@ NxtController.prototype.move = function ( direction, speed, turnRatio, callback 
   var fwd = ( direction === 'FWD' ),
       l   = this.motors.left,
       r   = this.motors.right,
-      nxt = this.nxt;
+      nxt = this.nxt,
+      speedm;
 
   if( !fwd ) {
     speed = 0 - speed;
   }
+  console.log(turnRatio);
+  if( turnRatio ) {
+    speedm = {
+      l: ( turnRatio < 0 ) ? speed : speed * turnRatio,
+      r: ( turnRatio > 0 ) ? speed : speed * Math.abs( turnRatio )
+    };
+  } else {
+    speedm = {
+      l: speed,
+      r: speed
+    };
+  }
 
-  nxt.OutputSetSpeed( l, 32, speed );
-  nxt.OutputSetSpeed( r, 32, speed );
+  console.log(speedm);
+
+  nxt.OutputSetSpeed( l, 32, speedm.l );
+  nxt.OutputSetSpeed( r, 32, speedm.r );
 };
 
 NxtController.prototype.moveAuxPrecise = function ( speed, degrees, callback ) {
