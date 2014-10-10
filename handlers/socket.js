@@ -209,6 +209,9 @@ SocketController.prototype.startEvent = function ( ev ) {
     case 'turnPrecise':
       gBot.spin( ev.eventDirection, ev.speed, ev.eventDegrees );
       break;
+    case 'dance':
+      gBot.dance();
+      break;
     case 'shoot':
       if( this.controller.currentUser.ballsRemaining < 1 ) {
         return this.socket.emit('event-error', {

@@ -178,38 +178,42 @@ NxtController.prototype.stop = function () {
 
   nxt.OutputSetSpeed(l, 32, 0);
   nxt.OutputSetSpeed(r, 32, 0);
+
+  if( this.isDancing ) {
+    clearInterval( this.danceInterval );
+    this.isDancing = false;
+  }
 };
 
-
 /*
-  Private Methods
+  Dance Method
 */
-// Broken
-NxtController.prototype._runMotors = function ( portArray ) {
+NxtController.prototype.dance = function () {
   this.checkConnection();
+  console.log('setting up dance');
+  this.isDancing = true;
+  this.danceInterval = setInterval(this._danceTick.bind( this ), 500);
+  this._danceTick();
+};
 
-  if( typeof portArray !== 'object' || !_.isArray( portArray ) ) {
-    throw new Error('You must pass ports to the _runMotors method');
-  }
+NxtController.prototype._danceTick = function () {
+  console.log('dancetick');
+  var genRand = function ( min, max ) {
+    return Math.floor( Math.random() * ( max - min + 1 ) + min );
+  };
 
-  var outputs = [],
-      nxt     = this.nxt;
+  var randSwitch = function () {
+    return Math.random() > 0.49;
+  };
 
-  for ( var key in portArray ) {
-    var o = portArray[ key ],
-        args = [ o.port, 32, o.speed ];
-
-    if( o.degrees ) {
-      args.push( o.degrees );
-    }
-
-    outputs.push( args );
-  }
-
-  outputs.forEach(function ( argArray ) {
-    console.log( argArray );
-    nxt.OutputSetSpeed( this, argArray );
-  });
+  var randDec    = Math.random(),
+      direction  = ( randSwitch() ) ? 'FWD' : 'BWD',
+      turnRatio  = ( randSwitch() ) ? 0 - randDec : randDec,
+      speed      = genRand( 60, 100 );
+  console.log(direction, speed, turnRatio);
+  this.nxt.OutputSetSpeed(this.motors.left, 32, 0);
+  this.nxt.OutputSetSpeed(this.motors.right, 32, 0);
+  this.move( direction, speed, turnRatio );
 };
 
 /*

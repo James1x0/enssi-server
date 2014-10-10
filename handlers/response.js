@@ -22,7 +22,7 @@ exports.error = {
   log: function (err) {
     logger.log('error', err);
   }
-}
+};
 
 exports.code = {
   unauthorized: function (res, msg) {
@@ -43,4 +43,4 @@ exports.code = {
       error: msg || 'This route has not been implemented yet.'
     });
   }
-}
+};
