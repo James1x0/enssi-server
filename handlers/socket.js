@@ -225,16 +225,16 @@ SocketController.prototype.startEvent = function ( ev ) {
   }
 };
 
-SocketController.prototype._emitMessage = function ( msg ) {
-  console.log(msg);
+SocketController.prototype._emitMessage = function ( type, msg ) {
   var args = Array.prototype.slice.call(arguments);
+
+  args.splice(0, 1);
 
   if( args.length > 0 ) {
     msg = args.join(' ');
   }
-  console.log(msg);
 
-  this.connection.emit('new-message', msg);
+  this.connection.emit('new-message', { type: type, text: msg, time: new Date() });
 };
 
 SocketController.prototype._resetQueueInterval = function () {
@@ -242,5 +242,5 @@ SocketController.prototype._resetQueueInterval = function () {
     clearInterval( this.queueInterval );
   }
 
-  this.queueInterval = setInterval( this._queueTick.bind( this ), 1000 * 10 ); // 30 Second Turns
+  this.queueInterval = setInterval( this._queueTick.bind( this ), 1000 * 30 );
 };
